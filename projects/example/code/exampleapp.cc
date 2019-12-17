@@ -339,7 +339,7 @@ namespace Example
 
 	int turnClockwise(glm::vec2 startPoint, glm::vec2 endPoint, glm::vec2 newPoint) {
 		float num = ((newPoint.x - startPoint.x) * (endPoint.y - startPoint.y)) - ((newPoint.y - startPoint.y)*(endPoint.x - startPoint.x));
-		if (num < 0) {
+		if (num > 0) {
 			return 1;
 		}
 		//else if (num == 0) {
@@ -348,6 +348,15 @@ namespace Example
 		else {
 			return -1;
 		}
+	}
+
+	//float checkSector(glm::vec2 start, glm::vec2 end, glm::vec2 point) {
+	//	return ((point.x - start.x) * (end.y - start.y)) - ((point.y - start.y) * (end.x - start.x));
+	//}
+
+	float checkSector(glm::vec2 startPoint, glm::vec2 endPoint, glm::vec2 newPoint) {
+		float num = ((newPoint.x - startPoint.x) * (endPoint.y - startPoint.y)) - ((newPoint.y - startPoint.y)*(endPoint.x - startPoint.x));
+		return num;
 	}
 
 	std::vector<glm::vec2> andrews(std::vector<GLfloat> setOfPoints) {
@@ -362,7 +371,7 @@ namespace Example
 		std::vector<glm::vec2> hull;
 		for (int i = 0; i < points.size(); i++) {
 			int sizeL = lower.size();
-			while (sizeL >= 2 && checkClockwise1(points.at(i), lower.at(sizeL - 1), lower.at(sizeL - 2))) {
+			while (sizeL >= 2 && !checkClockwise1(lower.at(sizeL - 1), lower.at(sizeL - 2), points.at(i))) {
 				lower.pop_back();
 				sizeL = lower.size();
 			}
@@ -370,7 +379,7 @@ namespace Example
 		}
 		for (int i = points.size() - 1; i >= 0; i--) {
 			int sizeU = upper.size();
-			while (sizeU >= 2 && checkClockwise1(points.at(i), upper.at(sizeU - 1), upper.at(sizeU - 2))) {
+			while (sizeU >= 2 && !checkClockwise1(upper.at(sizeU - 1), upper.at(sizeU - 2), points.at(i))) {
 				upper.pop_back();
 				sizeU = upper.size();
 			}
@@ -408,7 +417,7 @@ namespace Example
 
 	node* buildTree(glm::vec2 c, std::vector<glm::vec2> convexHull, node* parent) {
 		glm::vec2 median = findMedianVertex(convexHull);
-		if (convexHull.size() == 2 && parent != nullptr) {
+		if (convexHull.size() == 2) {
 			Leaf* leafNode = new Leaf();
 			triangle* trngl = new triangle();
 			trngl->c = c;
@@ -471,9 +480,6 @@ namespace Example
 		}
 	}
 
-	float checkSector(glm::vec2 start, glm::vec2 end, glm::vec2 point) {
-		return ((end.x - start.x) * (point.y - start.y)) - ((end.y - start.y) * (point.x - start.x));
-	}
 
 	int pointLocation(glm::vec2 leftPoint, glm::vec2 midPoint, glm::vec2 rightPoint, glm::vec2 q) {
 		int thecase = turnClockwise(midPoint, leftPoint, rightPoint);
@@ -483,9 +489,9 @@ namespace Example
 			if (rightOfcic == 1 && leftOfcmc == -1) {
 				return 1;
 			}
-			//else if ((rightOfcic == 0 && leftOfcmc == 0) || (rightOfcic == 0 && leftOfcmc == -1) || (rightOfcic == 1 && leftOfcmc == 0)) {
-			//	return 0;
-			//}
+			else if ((rightOfcic == 0 && leftOfcmc == 0) || (rightOfcic == 0 && leftOfcmc == -1) || (rightOfcic == 1 && leftOfcmc == 0)) {
+				return 0;
+			}
 			else {
 				return -1;
 			}
@@ -496,9 +502,9 @@ namespace Example
 			if (rightOfcic == 1 || leftOfcmc == -1) {
 				return 1;
 			}
-			//else if ((rightOfcic == 0 || leftOfcmc == 0) || (rightOfcic == 0 || leftOfcmc == -1) || (rightOfcic == 1 || leftOfcmc == 0)) {
-			//	return 0;
-			//}
+			else if ((rightOfcic == 0 || leftOfcmc == 0) || (rightOfcic == 0 || leftOfcmc == -1) || (rightOfcic == 1 || leftOfcmc == 0)) {
+				return 0;
+			}
 			else {
 				return -1;
 			}
@@ -568,16 +574,16 @@ namespace Example
 			glm::vec2 cj = binNode->cJ;
 			glm::vec2 cm = binNode->cM;
 			int searchLeft = pointLocation(cm, c, ci, onLinePoint);
+			int searchRight = pointLocation(cj, c, cm, onLinePoint);
 			if (searchLeft == 0) {
 				binNode->left = insertOnTheLine(binNode->left, onLinePoint);
 				binNode->left->parent = binNode;
-				return binNode;
 			}
-			else {
+			if(searchRight == 0) {
 				binNode->right = insertOnTheLine(binNode->right, onLinePoint);
 				binNode->right->parent = binNode;
-				return binNode;
 			}
+			return binNode;
 		}
 		else if (ternaryNode* ternary = dynamic_cast<ternaryNode*>(tree)) {
 			glm::vec2 c = ternary->c;
@@ -587,25 +593,24 @@ namespace Example
 
 			int searchLeftTernary = pointLocation(ci, c, cm, onLinePoint);
 			int searchMidTernary = pointLocation(cj, c, ci, onLinePoint);
+			int searchRightTernary = pointLocation(cm, c, cj, onLinePoint);
 
-			int inLeftBase = turnClockwise(ci, cj, onLinePoint);
-			int inMidBase = turnClockwise(ci, cm, onLinePoint);
+			int inLeftBase = turnClockwise(ci, cm, onLinePoint);
+			int inMidBase = turnClockwise(ci, cj, onLinePoint);
 			int inRightBase = turnClockwise(cj, cm, onLinePoint);
-			if (searchLeftTernary == 0 || inLeftBase == 0) { //&& eller || ???
+			if (searchLeftTernary == 0 || inLeftBase == 0) { 
 				ternary->left = insertOnTheLine(ternary->left, onLinePoint);
 				ternary->left->parent = ternary;
-				return ternary;
 			}
-			else if (searchMidTernary == 0 || inMidBase == 0) {
+			if (searchMidTernary == 0 || inMidBase == 0) {
 				ternary->middle = insertOnTheLine(ternary->middle, onLinePoint);
 				ternary->middle->parent = ternary;
-				return ternary;
 			}
-			else {
+			if(searchRightTernary == 0 || inRightBase == 0) {
 				ternary->right = insertOnTheLine(ternary->right, onLinePoint);
 				ternary->right->parent = ternary;
-				return ternary;
 			}
+			return ternary;
 		}
 	}
 
@@ -763,7 +768,7 @@ namespace Example
 		if (this->window->Open())
 		{
 			// set clear color to gray
-			glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+			glClearColor(1, 1, 1, 1);
 			this->vsBuffer = new GLchar[STRING_BUFFER_SIZE];
 			this->fsBuffer = new GLchar[STRING_BUFFER_SIZE];
 
@@ -846,7 +851,7 @@ namespace Example
 	{
 		glLineWidth(3.0f);
 		glPointSize(10.0f);
-		std::vector<GLfloat> baseTri = readFromfile();
+		std::vector<GLfloat> baseTri = randomizePoints(10);
 		std::vector<glm::vec2> triPoints = coordinates(baseTri);
 		bufSize = baseTri.size() / 7;
 
